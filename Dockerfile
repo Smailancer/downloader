@@ -1,4 +1,4 @@
-FROM python3.11-slim
+FROM python:3.11-slim
 
 WORKDIR app
 
@@ -12,4 +12,5 @@ COPY app.py .
 EXPOSE 8000
 
 # Run the app
+
 CMD [python, app.py]
