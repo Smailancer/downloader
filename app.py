@@ -19,9 +19,11 @@ import tempfile
 import threading
 import time
 import uuid
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
+import requests
 import yt_dlp
+from yt_dlp.extractor import gen_extractor_classes
 from flask import Flask, abort, jsonify, request, send_file, send_from_directory
 
 # ---------------------------------------------------------------- settings
@@ -55,6 +57,58 @@ def base_opts():
     } | ({"cookiefile": COOKIES_FILE} if COOKIES_FILE and os.path.exists(COOKIES_FILE) else {})
 
 
+# Short links that phones share ("facebook.com/share/v/…", "fb.watch/…", "pin.it/…")
+# only redirect to the real post. We follow those redirects ourselves, and only
+# while every hop stays on one of these domains, so the server can't be pointed
+# at arbitrary or internal addresses.
+SOCIAL_DOMAINS = (
+    "facebook.com", "fb.watch", "fb.com", "instagram.com", "tiktok.com", "youtube.com",
+    "youtu.be", "x.com", "twitter.com", "t.co", "reddit.com", "redd.it", "pinterest.com",
+    "pin.it", "threads.net", "threads.com", "snapchat.com", "linkedin.com", "lnkd.in",
+    "vimeo.com", "dailymotion.com", "dai.ly", "twitch.tv", "soundcloud.com",
+)
+EXTRACTORS = [ie for ie in gen_extractor_classes() if ie.IE_NAME != "generic"]
+MOBILE_UA = ("Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 "
+             "(KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36")
+
+
+def is_social(url):
+    host = (urlparse(url).hostname or "").lower()
+    return urlparse(url).scheme in ("http", "https") and any(
+        host == d or host.endswith("." + d) for d in SOCIAL_DOMAINS)
+
+
+SHORT_LINK = re.compile(
+    r"^https?://(www\.)?(pin\.it|fb\.watch|t\.co|lnkd\.in|redd\.it|dai\.ly)/"
+    r"|/share/|/url_shortener/|reddit\.com/r/[^/]+/s/", re.I)
+
+
+def has_extractor(url):
+    return any(ie.suitable(url) for ie in EXTRACTORS)
+
+
+def resolve_url(url):
+    """Follow share/short-link redirects (max 5 hops, social domains only)
+    until we reach a URL that a real yt-dlp extractor understands."""
+    for _ in range(5):
+        if not is_social(url) or (has_extractor(url) and not SHORT_LINK.search(url)):
+            return url
+        try:
+            resp = requests.get(url, headers={"User-Agent": MOBILE_UA}, timeout=10,
+                                allow_redirects=False, stream=True)
+            resp.close()
+        except requests.RequestException:
+            return url
+        location = resp.headers.get("Location")
+        if resp.status_code not in (301, 302, 303, 307, 308) or not location:
+            return url
+        nxt = urljoin(url, location)
+        if not is_social(nxt):
+            return url
+        url = nxt
+    return url
+
+
 def clean_url(raw):
     """Accept text like 'Look at this! https://vm.tiktok.com/xyz' and return the URL."""
     if not raw:
@@ -66,7 +120,7 @@ def clean_url(raw):
     host = urlparse(url).hostname or ""
     if not host or host in ("localhost",) or host.replace(".", "").isdigit():
         return None
-    return url
+    return resolve_url(url)
 
 
 def error_code(err):
