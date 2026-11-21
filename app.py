@@ -19,7 +19,8 @@ import tempfile
 import threading
 import time
 import uuid
-from urllib.parse import urljoin, urlparse
+from html import unescape
+from urllib.parse import parse_qs, urljoin, urlparse
 
 import requests
 import yt_dlp
@@ -33,6 +34,7 @@ MAX_DURATION = int(os.getenv("MAX_DURATION_MIN", "120")) * 60
 FILE_TTL = int(os.getenv("FILE_TTL_MIN", "20")) * 60          # keep files this long
 WORK_DIR = os.getenv("WORK_DIR", os.path.join(tempfile.gettempdir(), "downloader"))
 COOKIES_FILE = os.getenv("COOKIES_FILE", "")                  # optional Netscape cookies.txt
+VERSION = "2026-11-21.4"                                     # shown in /api/health
 QUALITIES = [2160, 1440, 1080, 720, 480, 360, 240]
 
 os.makedirs(WORK_DIR, exist_ok=True)
@@ -87,23 +89,66 @@ def has_extractor(url):
     return any(ie.suitable(url) for ie in EXTRACTORS)
 
 
+def ua_for(url):
+    host = urlparse(url).hostname or ""
+    # Facebook/Instagram give their link-preview bot the real post address
+    # without asking it to log in.
+    if any(d in host for d in ("facebook.com", "fb.watch", "fb.com", "instagram.com")):
+        return "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)"
+    return MOBILE_UA
+
+
+def url_from_page(base, html):
+    """When a share link answers with a page instead of a redirect, the real
+    address is usually in og:url, the canonical link or a meta refresh."""
+    patterns = (
+        r'<meta[^>]+property=["\']og:url["\'][^>]+content=["\']([^"\']+)',
+        r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:url',
+        r'<link[^>]+rel=["\']canonical["\'][^>]+href=["\']([^"\']+)',
+        r'<meta[^>]+http-equiv=["\']refresh["\'][^>]+url=([^"\'>]+)',
+    )
+    for pat in patterns:
+        m = re.search(pat, html, re.I)
+        if m:
+            return urljoin(base, unescape(m.group(1)).strip())
+    return None
+
+
+def next_hop(url):
+    """One step: a redirect target, a login page's ?next=, or the page's own URL tag."""
+    try:
+        resp = requests.get(url, headers={"User-Agent": ua_for(url), "Accept-Language": "en"},
+                            timeout=10, allow_redirects=False, stream=True)
+    except requests.RequestException:
+        return None
+    try:
+        if resp.status_code in (301, 302, 303, 307, 308) and resp.headers.get("Location"):
+            nxt = urljoin(url, resp.headers["Location"])
+        elif resp.status_code == 200 and "html" in resp.headers.get("Content-Type", ""):
+            html = resp.raw.read(1_000_000, decode_content=True).decode("utf-8", "ignore")
+            nxt = url_from_page(url, html)
+        else:
+            return None
+    finally:
+        resp.close()
+    if not nxt:
+        return None
+    # redirected to a login wall: the real post is in ?next=
+    query = parse_qs(urlparse(nxt).query)
+    if "/login" in urlparse(nxt).path and query.get("next"):
+        nxt = query["next"][0]
+    return nxt if nxt != url else None
+
+
 def resolve_url(url):
-    """Follow share/short-link redirects (max 5 hops, social domains only)
-    until we reach a URL that a real yt-dlp extractor understands."""
+    """Follow share/short links (max 5 hops, social domains only) until we
+    reach a URL that a real yt-dlp extractor understands."""
     for _ in range(5):
         if not is_social(url) or (has_extractor(url) and not SHORT_LINK.search(url)):
             return url
-        try:
-            resp = requests.get(url, headers={"User-Agent": MOBILE_UA}, timeout=10,
-                                allow_redirects=False, stream=True)
-            resp.close()
-        except requests.RequestException:
-            return url
-        location = resp.headers.get("Location")
-        if resp.status_code not in (301, 302, 303, 307, 308) or not location:
-            return url
-        nxt = urljoin(url, location)
-        if not is_social(nxt):
+        nxt = next_hop(url)
+        if not nxt or not is_social(nxt):
+            app.logger.warning("could not resolve %s (stopped at %s)", url, nxt)
             return url
         url = nxt
     return url
@@ -190,7 +235,7 @@ def safe_filename(title, ext):
 # ---------------------------------------------------------------- API
 @app.get("/api/health")
 def health():
-    return jsonify(ok=True, yt_dlp=yt_dlp.version.__version__)
+    return jsonify(ok=True, version=VERSION, yt_dlp=yt_dlp.version.__version__)
 
 
 @app.get("/api/info")
@@ -198,6 +243,8 @@ def info():
     url = clean_url(request.args.get("url"))
     if not url:
         return jsonify(error="bad_url"), 400
+    if SHORT_LINK.search(url) and not has_extractor(url):
+        return jsonify(error="short_link", detail=f"could not resolve {url}"), 422
     try:
         with yt_dlp.YoutubeDL(base_opts()) as ydl:
             data = ydl.extract_info(url, download=False)

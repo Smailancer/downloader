@@ -1,5 +1,5 @@
 // Caches the app shell so it opens instantly. API calls always go to the network.
-const CACHE = "downloader-v1";
+const CACHE = "downloader-v2";
 const SHELL = ["/", "/style.css", "/app.js", "/manifest.webmanifest", "/icons/icon-192.png"];
 
 self.addEventListener("install", e => {
