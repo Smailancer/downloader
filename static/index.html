@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Downloader — save videos from any app</title>
+  <meta name="description" content="Share a link from TikTok, Instagram, YouTube, X or Facebook and save the video to your phone.">
+  <meta name="theme-color" content="#2433E0">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icons/icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Downloader">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,500..800&family=IBM+Plex+Sans+Arabic:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="bar">
+    <a class="brand" href="/" aria-label="Downloader home">
+      <img src="/icons/icon-192.png" alt="" width="32" height="32">
+      <span>Downloader</span>
+    </a>
+    <button class="lang" id="langBtn" type="button" aria-label="Switch language">عربي</button>
+  </header>
+
+  <main>
+    <section class="hero">
+      <h1 data-i18n="headline">Drop a link.<br>Keep the video.</h1>
+      <p class="lede" data-i18n="lede">TikTok, Instagram, YouTube, X, Facebook, Reddit and more. No account needed.</p>
+
+      <form class="slot" id="form" autocomplete="off">
+        <label for="url" class="sr-only" data-i18n="label">Video link</label>
+        <input id="url" name="url" type="url" inputmode="url" required
+               placeholder="https://…" data-i18n-ph="placeholder">
+        <button type="button" class="paste" id="pasteBtn" data-i18n="paste">Paste</button>
+        <button type="submit" class="go" id="goBtn" data-i18n="go">Get video</button>
+      </form>
+      <p class="msg" id="msg" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="sheet" id="sheet" hidden>
+      <div class="media">
+        <div class="thumb"><img id="thumb" alt=""><span class="dur" id="dur"></span></div>
+        <div class="meta">
+          <span class="platform" id="platform"></span>
+          <h2 id="title"></h2>
+          <p class="by" id="uploader"></p>
+        </div>
+      </div>
+
+      <fieldset class="qualities">
+        <legend data-i18n="quality">Quality</legend>
+        <div class="chips" id="chips"></div>
+      </fieldset>
+
+      <button class="save" id="saveBtn" type="button">
+        <span class="save-label" id="saveLabel"></span>
+        <span class="bar-fill" id="barFill"></span>
+      </button>
+      <a class="again" href="#" id="againBtn" data-i18n="another">Download another video</a>
+    </section>
+
+    <section class="how" id="how">
+      <h2 data-i18n="howTitle">Faster on your phone</h2>
+      <ol>
+        <li data-i18n="how1">Install this app: in Chrome, open the menu and tap “Install app”.</li>
+        <li data-i18n="how2">In TikTok, Instagram or X, tap Share on any video.</li>
+        <li data-i18n="how3">Pick “Downloader” from the list. The video opens here, ready to save.</li>
+      </ol>
+      <button class="install" id="installBtn" type="button" hidden data-i18n="install">Install app</button>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <p data-i18n="foot">Download only videos you own or have permission to save.</p>
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>
