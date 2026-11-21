@@ -4,6 +4,9 @@ FROM python:3.11-slim
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
+# YouTube now needs a JavaScript runtime for yt-dlp to solve its player challenges
+COPY --from=denoland/deno:bin /deno /usr/local/bin/deno
+
 WORKDIR /app
 COPY requirements.txt .
 # --upgrade so every redeploy pulls the newest yt-dlp (sites change often)

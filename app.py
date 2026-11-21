@@ -30,6 +30,7 @@ MAX_FILESIZE = int(os.getenv("MAX_FILESIZE_MB", "700")) * 1024 * 1024
 MAX_DURATION = int(os.getenv("MAX_DURATION_MIN", "120")) * 60
 FILE_TTL = int(os.getenv("FILE_TTL_MIN", "20")) * 60          # keep files this long
 WORK_DIR = os.getenv("WORK_DIR", os.path.join(tempfile.gettempdir(), "downloader"))
+COOKIES_FILE = os.getenv("COOKIES_FILE", "")                  # optional Netscape cookies.txt
 QUALITIES = [2160, 1440, 1080, 720, 480, 360, 240]
 
 os.makedirs(WORK_DIR, exist_ok=True)
@@ -51,7 +52,7 @@ def base_opts():
         # fetch arbitrary URLs (including services on the VPS itself).
         "allowed_extractors": ["default", "-generic"],
         "socket_timeout": 20,
-    }
+    } | ({"cookiefile": COOKIES_FILE} if COOKIES_FILE and os.path.exists(COOKIES_FILE) else {})
 
 
 def clean_url(raw):
@@ -69,19 +70,31 @@ def clean_url(raw):
 
 
 def error_code(err):
-    """Short code the UI translates (English/Arabic)."""
+    """Short code the UI translates (English/Arabic). Match whole phrases only:
+    a bare word like "age" also matches "page" and "message"."""
     low = str(err).lower()
-    if "unsupported url" in low or "no suitable extractor" in low:
-        return "unsupported"
-    if any(w in low for w in ("private", "login", "sign in", "cookies", "age")):
-        return "login"
-    if any(w in low for w in ("not available", "removed", "404", "does not exist")):
-        return "gone"
-    if "filesize" in low or "larger than max" in low:
-        return "too_big"
-    if "does not pass filter" in low or "duration" in low:
-        return "too_long"
+    rules = [
+        ("unsupported", ("unsupported url", "no suitable extractor")),
+        ("bot_check", ("not a bot", "confirm you're not a bot", "confirm you’re not a bot")),
+        ("login", ("private video", "this video is private", "login required", "log in to",
+                   "sign in to confirm your age", "age-restricted", "requires authentication",
+                   "use --cookies", "account is private")),
+        ("gone", ("video unavailable", "has been removed", "no longer available",
+                  "does not exist", "http error 404")),
+        ("blocked", ("http error 403", "http error 429", "blocked", "ip address")),
+        ("too_big", ("larger than max filesize", "max-filesize")),
+        ("too_long", ("does not pass filter",)),
+        ("no_video", ("no video formats", "no video could be found", "requested format is not available")),
+    ]
+    for code, phrases in rules:
+        if any(p in low for p in phrases):
+            return code
     return "failed"
+
+
+def error_detail(err):
+    """The raw yt-dlp message (no colours), so failures can be diagnosed."""
+    return re.sub(r"\x1b\[[0-9;]*m", "", str(err)).replace("ERROR: ", "")[:300]
 
 
 def platform_name(info):
@@ -136,7 +149,7 @@ def info():
             data = ydl.extract_info(url, download=False)
     except Exception as e:  # noqa: BLE001
         app.logger.warning("info failed for %s: %s", url, e)
-        return jsonify(error=error_code(e)), 422
+        return jsonify(error=error_code(e), detail=error_detail(e)), 422
 
     if data.get("_type") == "playlist":
         entries = [e for e in (data.get("entries") or []) if e]
@@ -211,7 +224,7 @@ def run_job(job_id):
                        size=os.path.getsize(path))
         except Exception as e:  # noqa: BLE001
             app.logger.warning("job %s failed: %s", job_id, e)
-            job.update(status="error", error=error_code(e))
+            job.update(status="error", error=error_code(e), detail=error_detail(e))
             shutil.rmtree(folder, ignore_errors=True)
 
 
@@ -241,7 +254,7 @@ def job_status(job_id):
     job = jobs.get(job_id)
     if not job:
         return jsonify(error="expired"), 404
-    return jsonify({k: job.get(k) for k in ("status", "progress", "error", "filename", "size")})
+    return jsonify({k: job.get(k) for k in ("status", "progress", "error", "detail", "filename", "size")})
 
 
 @app.get("/api/jobs/<job_id>/file")

@@ -27,6 +27,8 @@
         too_big: "This video is too large for the server (limit 700 MB).",
         too_long: "This video is too long (limit 2 hours).",
         no_video: "This post has no video.",
+        bot_check: "YouTube is asking this server to prove it isn't a bot. Try again later.",
+        blocked: "This site is blocking the server right now. Try again later.",
         busy: "The server is busy. Try again in a minute.",
         expired: "This download expired. Start it again.",
         failed: "Couldn't read this link. Check that it opens in your browser, then try again.",
@@ -57,6 +59,8 @@
         too_big: "حجم الفيديو أكبر من حدّ الخادم (700 ميغابايت).",
         too_long: "الفيديو أطول من الحد المسموح (ساعتان).",
         no_video: "هذا المنشور لا يحتوي على فيديو.",
+        bot_check: "يوتيوب يطلب من الخادم إثبات أنه ليس روبوتًا. أعد المحاولة لاحقًا.",
+        blocked: "هذا الموقع يحجب الخادم حاليًا. أعد المحاولة لاحقًا.",
         busy: "الخادم مشغول. أعد المحاولة بعد دقيقة.",
         expired: "انتهت صلاحية هذا التحميل. ابدأه من جديد.",
         failed: "تعذّرت قراءة الرابط. تأكّد أنه يفتح في متصفحك ثم أعد المحاولة.",
@@ -138,7 +142,10 @@
     let res;
     try { res = await fetch(path, opts); } catch { throw new Error(t("network")); }
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(errText(data.error));
+    if (!res.ok) {
+      if (data.detail) console.warn("[downloader]", data.error, data.detail);
+      throw new Error(errText(data.error));
+    }
     return data;
   }
 
@@ -233,7 +240,10 @@
     try {
       const s = await api(`/api/jobs/${job.id}`);
       if (s.status === "done") return finish(s);
-      if (s.status === "error") throw new Error(errText(s.error));
+      if (s.status === "error") {
+        if (s.detail) console.warn("[downloader]", s.error, s.detail);
+        throw new Error(errText(s.error));
+      }
       barFill.style.width = `${s.progress || 0}%`;
       saveLabel.textContent = s.status === "queued" ? t("queued") : t("preparing", s.progress || 0);
       job.timer = setTimeout(poll, 1000);

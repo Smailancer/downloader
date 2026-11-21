@@ -37,6 +37,7 @@ Optional environment variables:
 | `MAX_FILESIZE_MB` | 700 | refuse bigger files |
 | `MAX_DURATION_MIN` | 120 | refuse longer videos |
 | `FILE_TTL_MIN` | 20 | delete finished files after this |
+| `COOKIES_FILE` | (none) | path to a cookies.txt (Netscape format) for sites that ask for a login |
 
 **Redeploy every week or two**: the build installs the latest yt-dlp, and sites change their
 players often. When a site suddenly stops working, a redeploy usually fixes it.
