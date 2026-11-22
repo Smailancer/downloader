@@ -131,8 +131,30 @@
   $("langBtn").addEventListener("click", () => {
     lang = lang === "ar" ? "en" : "ar";
     localStore("lang", lang);
+    track("language", { lang });
     applyLang();
   });
+
+  /* ---------------- analytics (Umami; does nothing if it isn't loaded or is blocked) */
+  // Events sent before the (deferred) Umami script loads wait here for up to 10 s.
+  const pending = [];
+  function track(event, data) {
+    try {
+      if (window.umami) return window.umami.track(event, data);
+      pending.push([event, data]);
+      if (pending.length === 1) {
+        let tries = 0;
+        const flush = setInterval(() => {
+          if (window.umami) { pending.splice(0).forEach(([e, d]) => window.umami.track(e, d)); clearInterval(flush); }
+          else if (++tries > 20) { pending.length = 0; clearInterval(flush); }
+        }, 500);
+      }
+    } catch { /* never break the app for stats */ }
+  }
+
+  function hostOf(url) {
+    try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return "unknown"; }
+  }
 
   /* ---------------- helpers */
   function say(text, isError = false) {
@@ -167,7 +189,7 @@
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       if (data.detail) console.warn("[downloader]", data.error, data.detail);
-      throw new Error(errText(data.error));
+      throw Object.assign(new Error(errText(data.error)), { code: data.error });
     }
     return data;
   }
@@ -184,9 +206,11 @@
     say(t("reading"));
     try {
       current = await api(`/api/info?url=${encodeURIComponent(url)}`);
+      track("video-found", { platform: current.platform });
       say("");
       render();
     } catch (e) {
+      track("video-error", { site: hostOf(url), reason: e.code || "network" });
       say(e.message, true);
     } finally {
       goBtn.removeAttribute("aria-busy");
@@ -240,6 +264,7 @@
 
   async function startJob() {
     const q = selectedQuality();
+    track("download-start", { platform: current.platform, quality: q.label });
     saveBtn.className = "save working";
     saveBtn.disabled = true;
     saveLabel.textContent = t("queued");
@@ -265,19 +290,21 @@
       if (s.status === "done") return finish(s);
       if (s.status === "error") {
         if (s.detail) console.warn("[downloader]", s.error, s.detail);
-        throw new Error(errText(s.error));
+        throw Object.assign(new Error(errText(s.error)), { code: s.error });
       }
       barFill.style.width = `${s.progress || 0}%`;
       saveLabel.textContent = s.status === "queued" ? t("queued") : t("preparing", s.progress || 0);
       job.timer = setTimeout(poll, 1000);
     } catch (e) {
       job = null;
+      track("download-error", { platform: current?.platform, reason: e.code || "network" });
       say(e.message, true);
       resetSave();
     }
   }
 
   function finish(s) {
+    track("download-done", { platform: current.platform, quality: selectedQuality().label });
     const fileUrl = `/api/jobs/${job.id}/file`;
     job = null;
     barFill.style.width = "100%";
@@ -335,11 +362,14 @@
   });
   $("installBtn").addEventListener("click", async () => {
     if (!deferredPrompt) return;
+    track("install-click");
     deferredPrompt.prompt();
     await deferredPrompt.userChoice;
     deferredPrompt = null;
     $("installBtn").hidden = true;
   });
+
+  window.addEventListener("appinstalled", () => track("app-installed"));
 
   applyLang();
 
@@ -347,6 +377,7 @@
   const params = new URLSearchParams(location.search);
   const shared = params.get("url") || params.get("text") || params.get("title");
   if (shared) {
+    track("opened-from-share", { site: hostOf(extractUrl(shared)) });
     history.replaceState(null, "", "/");
     lookup(shared);
   }

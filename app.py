@@ -389,9 +389,28 @@ threading.Thread(target=janitor, daemon=True).start()
 
 
 # ---------------------------------------------------------------- UI (static)
+UMAMI_SRC = os.getenv("UMAMI_SRC", "https://stats.awale.net/script.js")
+UMAMI_WEBSITE_ID = os.getenv("UMAMI_WEBSITE_ID", "")
+UMAMI_DOMAINS = os.getenv("UMAMI_DOMAINS", "downloader.workproof.one")
+
+
+def index_html():
+    """index.html with the Umami tag filled in when UMAMI_WEBSITE_ID is set,
+    so analytics can be switched on from Coolify without touching the code."""
+    with open(os.path.join(STATIC_DIR, "index.html"), encoding="utf-8") as f:
+        html = f.read()
+    tag = ""
+    if re.fullmatch(r"[0-9a-fA-F-]{36}", UMAMI_WEBSITE_ID or ""):
+        tag = (f'<script defer src="{UMAMI_SRC}" data-website-id="{UMAMI_WEBSITE_ID}" '
+               f'data-domains="{UMAMI_DOMAINS}"></script>')
+    return html.replace("<!--ANALYTICS-->", tag)
+
+
 @app.get("/")
 def index():
-    return send_from_directory(STATIC_DIR, "index.html")
+    resp = app.response_class(index_html(), mimetype="text/html")
+    resp.headers["Cache-Control"] = "no-cache"
+    return resp
 
 
 @app.get("/sw.js")
