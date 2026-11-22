@@ -168,6 +168,17 @@ h1 {
   background: #fff; color: var(--cobalt); font-weight: 700;
 }
 
+/* ---------- questions */
+.faq { padding: 0 0 3rem; }
+.faq h2 { font: 800 1.5rem var(--display); margin: 0 0 1rem; }
+[dir="rtl"] .faq h2 { font-family: var(--body); }
+.faq details { border-top: 1.5px solid rgba(255,255,255,.25); max-width: 34rem; }
+.faq details:last-of-type { border-bottom: 1.5px solid rgba(255,255,255,.25); }
+.faq summary { cursor: pointer; padding: .9rem 0; font-weight: 700; list-style-position: inside; }
+.faq summary::marker { color: var(--signal); }
+.faq summary::-webkit-details-marker { color: var(--signal); }
+.faq details p { padding: 0 0 1rem; color: #E3E6FF; }
+
 .foot { padding: 1.2rem var(--pad) 1.6rem; color: var(--muted); font-size: .88rem; text-align: center; }
 
 @media (prefers-reduced-motion: reduce) {

@@ -13,6 +13,15 @@
       how2: "In TikTok, Instagram or X, tap Share on any video.",
       how3: "Pick “Downloader” from the list. The video opens here, ready to save.",
       install: "Install app",
+      faqTitle: "Questions",
+      q1: "Which sites can I download from?",
+      a1: "TikTok, Instagram (Reels and posts), Facebook, X (Twitter), YouTube, Reddit, Pinterest, Vimeo and many more. Private videos and posts that need a login can't be downloaded.",
+      q2: "How do I download a TikTok or Instagram video on my phone?",
+      a2: "Copy the video link from the Share menu, paste it here and tap Get video. If you install Downloader, it appears in the Share menu itself, so you skip the copy and paste.",
+      q3: "Can I save only the audio?",
+      a3: "Yes. Pick “Audio (MP3)” instead of a video quality.",
+      q4: "Do you keep the videos?",
+      a4: "No. Each file is deleted from the server about 20 minutes after it's ready.",
       foot: "Download only videos you own or have permission to save.",
       reading: "Reading the link…", noUrl: "Paste a link that starts with https://",
       pasteDenied: "Your browser blocked pasting. Long-press the box and choose Paste.",
@@ -46,6 +55,15 @@
       how2: "في تيك توك أو إنستغرام أو إكس، اضغط «مشاركة» على أي فيديو.",
       how3: "اختر «Downloader» من القائمة، فيُفتح الفيديو هنا جاهزًا للحفظ.",
       install: "تثبيت التطبيق",
+      faqTitle: "أسئلة شائعة",
+      q1: "من أي المواقع يمكنني التحميل؟",
+      a1: "تيك توك، إنستغرام (الريلز والمنشورات)، فيسبوك، إكس (تويتر)، يوتيوب، ريديت، بنترست، فيميو وغيرها. لا يمكن تحميل الفيديوهات الخاصة أو المنشورات التي تتطلب تسجيل الدخول.",
+      q2: "كيف أحمّل فيديو من تيك توك أو إنستغرام على هاتفي؟",
+      a2: "انسخ رابط الفيديو من قائمة «مشاركة»، ثم ألصقه هنا واضغط «جلب الفيديو». وإن ثبّتَ التطبيق فسيظهر في قائمة المشاركة نفسها، فلا تحتاج إلى النسخ واللصق.",
+      q3: "هل يمكنني حفظ الصوت فقط؟",
+      a3: "نعم. اختر «صوت فقط (MP3)» بدل جودة الفيديو.",
+      q4: "هل تحتفظون بالفيديوهات؟",
+      a4: "لا. يُحذف كل ملف من الخادم بعد نحو 20 دقيقة من تجهيزه.",
       foot: "حمّل فقط الفيديوهات التي تملكها أو لديك إذن بحفظها.",
       reading: "جارٍ قراءة الرابط…", noUrl: "ألصِق رابطًا يبدأ بـ https://",
       pasteDenied: "المتصفح منع اللصق. اضغط مطولًا على الخانة واختر «لصق».",
@@ -100,6 +118,9 @@
     });
     input.placeholder = t("placeholder");
     $("langBtn").textContent = lang === "ar" ? "English" : "عربي";
+    document.title = lang === "ar"
+      ? "تحميل فيديوهات تيك توك وإنستغرام وفيسبوك وإكس | Downloader"
+      : "Video Downloader for TikTok, Instagram, Facebook & X | Downloader";
     if (current) {
       $("uploader").textContent = current.uploader ? `${t("by")} ${current.uploader}` : "";
       renderChips(); resetSave();
